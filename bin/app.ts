@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
 import { PersonServiceStack } from '../lib/person-service-stack';
+import type { Stage } from '../lib/person-service-stack';
 
 const app = new cdk.App();
-const stage = app.node.tryGetContext('stage') ?? 'dev';
+const stage: Stage = app.node.tryGetContext('stage') ?? 'dev';
 
 new PersonServiceStack(app, `PersonService-${stage}`, {
   stage,

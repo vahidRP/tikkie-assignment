@@ -10,12 +10,20 @@ A serverless microservice that creates and manages persons, built with **AWS CDK
 Client
   │
   ▼
-API Gateway (REST)
+WAF (Common exploits, SQLi protection, IP rate limiting)
+  │
+  ▼
+API Gateway (REST) ── API Key + Usage Plan (per-key throttle & daily quota)
   │  POST /person
   ▼
-Lambda (create-person)
-  ├──▶ DynamoDB  (persist person)
-  └──▶ EventBridge  (publish PersonCreated event)
+Lambda (create-person) ──── on failure ────▶ SQS Dead Letter Queue
+  ├──▶ DynamoDB       (persist person)             │
+  └──▶ EventBridge    (publish PersonCreated)      ▼
+                                            CloudWatch Alarm
+CloudWatch Alarms
+  ├── Lambda error rate
+  ├── Lambda throttles
+  └── DLQ message count
 ```
 
 ### Layered Design
@@ -33,12 +41,16 @@ Domain and application layers have **zero AWS imports**, making them independent
 
 ## Why These AWS Services?
 
-| Service         | Reason                                                                       |
-| --------------- | ---------------------------------------------------------------------------- |
-| **API Gateway** | Managed REST API with throttling, CORS, and Lambda integration               |
-| **Lambda**      | Pay-per-invocation, zero infrastructure management, auto-scaling             |
-| **DynamoDB**    | Serverless NoSQL with PAY_PER_REQUEST — scales to zero, no capacity planning |
-| **EventBridge** | Decoupled event bus — other microservices subscribe without coupling         |
+| Service                  | Reason                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| **API Gateway**          | Managed REST API with throttling, CORS, API key authentication, and Lambda integration |
+| **Lambda**               | Pay-per-invocation, zero infrastructure management, auto-scaling, X-Ray tracing        |
+| **DynamoDB**             | Serverless NoSQL with PAY_PER_REQUEST — scales to zero, no capacity planning           |
+| **EventBridge**          | Decoupled event bus — other microservices subscribe without coupling                   |
+| **WAF**                  | Edge-level protection: AWS managed rules (OWASP, SQLi) and per-IP rate limiting        |
+| **SQS (DLQ)**            | Captures failed Lambda invocations for later inspection — prevents silent data loss    |
+| **CloudWatch**           | Alarms on Lambda errors, throttles, and DLQ depth for operational visibility           |
+| **API Key + Usage Plan** | Client identification with per-key throttle rates and daily request quotas             |
 
 ---
 
@@ -57,7 +69,7 @@ Domain and application layers have **zero AWS imports**, making them independent
 │   ├── infrastructure/
 │   │   ├── adapters/                  # DynamoDB repo, EventBridge publisher
 │   │   ├── config.ts                  # Runtime environment config
-│   │   └── logger.ts                  # Structured JSON logger
+│   │   └── logger.ts                  # Powertools for AWS Lambda logger
 │   ├── handlers/create-person.ts      # Lambda handler
 │   └── shared/validation.ts           # Zod validation schemas
 ├── test/
@@ -72,8 +84,9 @@ Domain and application layers have **zero AWS imports**, making them independent
 
 ### Prerequisites
 
-- Node.js >= 20
+- Node.js >= 24
 - pnpm >= 9
+- Docker (for local development with LocalStack)
 - AWS CLI configured (for deployment)
 - AWS CDK CLI (`pnpm cdk`)
 
@@ -95,8 +108,9 @@ pnpm format:check  # check formatting
 ### Test
 
 ```bash
-pnpm test                # run all tests
+pnpm test                # run all unit tests
 pnpm test:coverage       # run with coverage report
+pnpm test:integration    # run integration tests (requires LocalStack)
 ```
 
 ### Build (type-check)
@@ -104,6 +118,93 @@ pnpm test:coverage       # run with coverage report
 ```bash
 pnpm build
 ```
+
+---
+
+## Local Development with LocalStack
+
+[LocalStack](https://localstack.cloud/) emulates AWS services locally so you can develop and test without deploying to AWS or incurring any costs.
+
+### Prerequisites
+
+- **Docker** must be running — LocalStack runs as a container
+- The Docker socket (`/var/run/docker.sock`) must be accessible — LocalStack needs it to create Lambda functions
+
+### 1. Start LocalStack & deploy the stack
+
+```bash
+pnpm localstack:up
+```
+
+This does three things:
+
+1. Starts a LocalStack container via Docker Compose
+2. Runs `cdklocal bootstrap` to set up the CDK staging resources
+3. Runs `cdklocal deploy -c stage=local` to deploy the **exact same CDK stack** to LocalStack
+
+All resources (DynamoDB table, EventBridge bus, Lambda, API Gateway, WAF, alarms, etc.) are created locally — identical to what gets deployed to AWS.
+
+> **Note:** `cdklocal` always deploys to `us-east-1` regardless of region configuration.
+> All local resources use this region.
+
+### 2. Test the API locally with curl
+
+After `localstack:up`, the API Gateway URL and API key ID are printed as CloudFormation outputs. Use them to call the API:
+
+```bash
+# Create a person via the local API Gateway
+curl -X POST http://localhost:4566/restapis/<api-id>/local/_user_request_/person \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: <api-key>' \
+  -d '{
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "+31612345678",
+    "address": {
+      "street": "Keizersgracht 100",
+      "city": "Amsterdam",
+      "postalCode": "1015AA",
+      "country": "Netherlands"
+    }
+  }'
+```
+
+> **Tip:** Retrieve the API key value with:
+>
+> ```bash
+> awslocal apigateway get-api-keys --include-values --region us-east-1
+> ```
+
+### 3. Run integration tests
+
+The integration tests exercise the full flow (handler → use case → DynamoDB + EventBridge) against LocalStack:
+
+```bash
+# Make sure LocalStack is running first
+pnpm localstack:up
+
+# Run integration tests
+pnpm test:integration
+```
+
+### 4. Stop / reset LocalStack
+
+```bash
+pnpm localstack:down    # stop containers
+pnpm localstack:reset   # stop, remove volumes, and redeploy fresh
+```
+
+### How it works
+
+| Component              | Details                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **docker-compose.yml** | Runs LocalStack v4 with Docker socket mounted for Lambda support         |
+| **cdklocal**           | Deploys the same `PersonServiceStack` (stage=local) to LocalStack        |
+| **test/integration/**  | Integration tests using real AWS SDK clients pointed at `localhost:4566` |
+
+Because `cdklocal` deploys the real CDK stack, any new resources you add to `PersonServiceStack` automatically appear in the local environment — no separate scripts to maintain.
+
+The integration tests inject LocalStack-configured AWS SDK clients into the same adapters used in production — no code changes needed.
 
 ---
 
@@ -245,13 +346,9 @@ The event is intentionally **lean** — it includes identifiers and essential fi
 - **No client-driven idempotency key** — UUIDs prevent natural collisions; a client-provided key would enable true idempotent retries.
 - **Event published after write** — if EventBridge publish fails, the person is saved but the event is lost. A transactional outbox pattern or DynamoDB Streams → EventBridge Pipes would guarantee delivery.
 - **No custom domain** — API Gateway provides a generated URL; a custom domain with Route 53 is a production must.
-- **Structured logger is minimal** — for production, consider [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/) for correlation IDs, tracing, and log levels.
 
 ### Future extensions
 
 - `GET /person/{id}` — DynamoDB table already supports single-item lookup by `id`.
 - `GET /person` — add a GSI on `lastName` or use scan with pagination.
-- Input sanitization and rate limiting per client.
-- Dead letter queue for failed Lambda invocations.
-- X-Ray tracing for observability.
 - OpenAPI spec generation from Zod schemas.

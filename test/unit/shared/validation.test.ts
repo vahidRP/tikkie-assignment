@@ -58,7 +58,7 @@ describe('createPersonSchema', () => {
   });
 
   it('should reject when address is missing', () => {
-    const { address: _, ...withoutAddress } = validInput;
+    const { address: _address, ...withoutAddress } = validInput;
     const result = createPersonSchema.safeParse(withoutAddress);
     expect(result.success).toBe(false);
   });

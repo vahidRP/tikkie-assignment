@@ -1,23 +1,8 @@
-type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { search } from '@aws-lambda-powertools/logger/correlationId';
 
-function log(level: LogLevel, message: string, context?: Record<string, unknown>): void {
-  const entry = { level, message, timestamp: new Date().toISOString(), ...context };
-  const output = JSON.stringify(entry);
-
-  switch (level) {
-    case 'ERROR':
-      console.error(output);
-      break;
-    case 'WARN':
-      console.warn(output);
-      break;
-    default:
-      console.log(output);
-  }
-}
-
-export const logger = {
-  info: (message: string, context?: Record<string, unknown>) => log('INFO', message, context),
-  warn: (message: string, context?: Record<string, unknown>) => log('WARN', message, context),
-  error: (message: string, context?: Record<string, unknown>) => log('ERROR', message, context),
-};
+export const logger = new Logger({
+  serviceName: process.env.POWERTOOLS_SERVICE_NAME ?? 'person-service',
+  correlationIdSearchFn: search,
+  logRecordOrder: ['level', 'timestamp', 'correlation_id', 'message'],
+});

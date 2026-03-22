@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import type { CreatePersonInput, Person } from '../domain/models/person';
 import { createPersonSchema } from '../shared/validation';
 import { CreatePersonUseCase } from '../application/use-cases/create-person';
@@ -26,7 +26,13 @@ function response(statusCode: number, body: unknown): APIGatewayProxyResult {
 // --- Handler factory (exported for unit tests) ---
 
 export function createHandler(useCase: CreatePersonPort) {
-  return async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  return async (event: APIGatewayProxyEvent, context?: Context): Promise<APIGatewayProxyResult> => {
+    if (context) {
+      logger.addContext(context);
+    }
+    logger.setCorrelationId(event.requestContext?.requestId ?? 'unknown');
+    logger.logEventIfEnabled(event);
+
     try {
       let body: unknown;
       try {
@@ -49,10 +55,10 @@ export function createHandler(useCase: CreatePersonPort) {
 
       return response(201, person);
     } catch (error) {
-      logger.error('Failed to create person', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      logger.error('Failed to create person', error as Error);
       return response(500, { message: 'Internal server error' });
+    } finally {
+      logger.resetKeys();
     }
   };
 }

@@ -30,7 +30,9 @@ function apiEvent(
     queryStringParameters: null,
     multiValueQueryStringParameters: null,
     stageVariables: null,
-    requestContext: {} as APIGatewayProxyEvent['requestContext'],
+    requestContext: {
+      requestId: 'test-request-id',
+    } as unknown as APIGatewayProxyEvent['requestContext'],
     resource: '/person',
     ...overrides,
   } as APIGatewayProxyEvent;
