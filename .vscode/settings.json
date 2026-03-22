@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["typescript", "typescriptreact", "javascript"],
+
+  "typescript.tsdk": "node_modules/typescript/lib"
+}
