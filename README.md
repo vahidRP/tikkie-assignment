@@ -94,6 +94,7 @@ Domain and application layers have **zero AWS imports**, making them independent
 
 ```bash
 pnpm install
+cp .env.example .env  # configure environment variables
 ```
 
 ### Lint & Format
