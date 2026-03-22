@@ -1,7 +1,6 @@
 import { CreatePersonUseCase } from '../../../src/application/use-cases/create-person';
 import { PersonRepository } from '../../../src/domain/ports/person-repository';
 import { EventPublisher } from '../../../src/domain/ports/event-publisher';
-import { Person } from '../../../src/domain/models/person';
 
 describe('CreatePersonUseCase', () => {
   const mockRepository: jest.Mocked<PersonRepository> = {
@@ -34,9 +33,7 @@ describe('CreatePersonUseCase', () => {
     const person = await useCase.execute(validInput);
 
     expect(person.id).toBeDefined();
-    expect(person.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    );
+    expect(person.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(person.createdAt).toBeDefined();
     expect(new Date(person.createdAt).toISOString()).toBe(person.createdAt);
   });

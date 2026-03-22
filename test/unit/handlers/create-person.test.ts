@@ -15,7 +15,10 @@ import { Person } from '../../../src/domain/models/person';
 
 // --- Test helpers ---
 
-function apiEvent(body: unknown, overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent {
+function apiEvent(
+  body: unknown,
+  overrides: Partial<APIGatewayProxyEvent> = {},
+): APIGatewayProxyEvent {
   return {
     body: typeof body === 'string' ? body : JSON.stringify(body),
     headers: {},

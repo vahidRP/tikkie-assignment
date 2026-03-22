@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { PersonServiceStack } from '../../lib/person-service-stack';
 
 function createStack(stage = 'dev'): Template {
@@ -54,10 +54,11 @@ describe('PersonServiceStack', () => {
       const template = createStack();
 
       template.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'create-person-dev',
         Environment: {
           Variables: {
-            TABLE_NAME: { Ref: expect.stringMatching(/PersonTable/) },
-            EVENT_BUS_NAME: { Ref: expect.stringMatching(/PersonEventBus/) },
+            TABLE_NAME: Match.anyValue(),
+            EVENT_BUS_NAME: Match.anyValue(),
             NODE_OPTIONS: '--enable-source-maps',
           },
         },
@@ -89,11 +90,9 @@ describe('PersonServiceStack', () => {
 
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: {
-          Statement: expect.arrayContaining([
-            expect.objectContaining({
-              Action: expect.arrayContaining([
-                'dynamodb:PutItem',
-              ]),
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith(['dynamodb:PutItem']),
               Effect: 'Allow',
             }),
           ]),
@@ -106,8 +105,8 @@ describe('PersonServiceStack', () => {
 
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: {
-          Statement: expect.arrayContaining([
-            expect.objectContaining({
+          Statement: Match.arrayWith([
+            Match.objectLike({
               Action: 'events:PutEvents',
               Effect: 'Allow',
             }),

@@ -12,12 +12,12 @@ This is a **serverless microservice** called **Person Service** built with AWS C
 
 The project follows a **Ports & Adapters** (hexagonal) architecture with four layers:
 
-| Layer | Path | Depends on AWS? | Purpose |
-|---|---|---|---|
-| **Domain** | `src/domain/` | No | Models, event contracts, port interfaces |
-| **Application** | `src/application/` | No | Use cases — orchestrate domain + ports |
-| **Infrastructure** | `src/infrastructure/` | Yes | Adapter implementations (DynamoDB, EventBridge, config, logger) |
-| **Handlers** | `src/handlers/` | Yes | Thin Lambda entry points — parse, validate, delegate |
+| Layer              | Path                  | Depends on AWS? | Purpose                                                         |
+| ------------------ | --------------------- | --------------- | --------------------------------------------------------------- |
+| **Domain**         | `src/domain/`         | No              | Models, event contracts, port interfaces                        |
+| **Application**    | `src/application/`    | No              | Use cases — orchestrate domain + ports                          |
+| **Infrastructure** | `src/infrastructure/` | Yes             | Adapter implementations (DynamoDB, EventBridge, config, logger) |
+| **Handlers**       | `src/handlers/`       | Yes             | Thin Lambda entry points — parse, validate, delegate            |
 
 ### Dependency rule
 
@@ -136,6 +136,7 @@ logger.error('Failed to create person', error as Error);
 ```
 
 Key conventions:
+
 - **Instantiate the logger once** at module scope in `src/infrastructure/logger.ts`
 - **Inject Lambda context** via `logger.addContext(context)` in the handler for cold start and function metadata
 - **Set correlation ID** from `event.requestContext.requestId` for request tracing
@@ -153,14 +154,14 @@ Stacks are parameterized by `stage` (passed via CDK context: `cdk deploy -c stag
 
 ### Environment-specific behavior
 
-| Setting | dev | prod |
-|---|---|---|
-| DynamoDB removal policy | DESTROY | RETAIN |
-| Point-in-time recovery | Off | On |
-| API throttle rate | 100 req/s | 1000 req/s |
-| API throttle burst | 50 | 500 |
-| POWERTOOLS_LOG_LEVEL | DEBUG | INFO |
-| POWERTOOLS_LOGGER_LOG_EVENT | true | false |
+| Setting                     | dev       | prod       |
+| --------------------------- | --------- | ---------- |
+| DynamoDB removal policy     | DESTROY   | RETAIN     |
+| Point-in-time recovery      | Off       | On         |
+| API throttle rate           | 100 req/s | 1000 req/s |
+| API throttle burst          | 50        | 500        |
+| POWERTOOLS_LOG_LEVEL        | DEBUG     | INFO       |
+| POWERTOOLS_LOGGER_LOG_EVENT | true      | false      |
 
 ### Resource conventions
 
@@ -219,16 +220,16 @@ Tests live in `test/` and mirror the source structure:
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm build` | Type-check (tsc --noEmit) |
-| `pnpm test` | Run all tests |
-| `pnpm test:coverage` | Tests with coverage report |
-| `pnpm lint` / `pnpm lint:fix` | ESLint |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm synth` | Synthesize CloudFormation template |
-| `pnpm deploy:dev` | Deploy to dev (no approval) |
-| `pnpm deploy:prod` | Deploy to prod (with approval) |
+| Command                             | Purpose                            |
+| ----------------------------------- | ---------------------------------- |
+| `pnpm build`                        | Type-check (tsc --noEmit)          |
+| `pnpm test`                         | Run all tests                      |
+| `pnpm test:coverage`                | Tests with coverage report         |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint                             |
+| `pnpm format` / `pnpm format:check` | Prettier                           |
+| `pnpm synth`                        | Synthesize CloudFormation template |
+| `pnpm deploy:dev`                   | Deploy to dev (no approval)        |
+| `pnpm deploy:prod`                  | Deploy to prod (with approval)     |
 
 ---
 

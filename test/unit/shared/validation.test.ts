@@ -70,8 +70,8 @@ describe('createPersonSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const errors = result.error.flatten().fieldErrors;
-      expect(errors['address.street'] || result.error.issues.length).toBeTruthy();
+      const addressIssues = result.error.issues.filter((i) => i.path[0] === 'address');
+      expect(addressIssues.length).toBeGreaterThanOrEqual(4);
     }
   });
 
